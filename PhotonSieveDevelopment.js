@@ -84,10 +84,6 @@ class Pinhole {
        this.pinholeArea = pinholeArea
        this.point = new Point(radius * Math.cos(azimuth), radius * Math.sin(azimuth)); 
     }
-
-    toString() {
-        return "("+this.point.x+", "+this.point.y+")";
-    }
 }
 
 function distanceBetween(a, b) {
