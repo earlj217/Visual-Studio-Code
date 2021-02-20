@@ -24,70 +24,85 @@ class Sieve {
         this.totalPinholes = totalPinholes
         this.totalArea = totalArea
         this.fNumber = fNumber
+        this.rings = []
+    }
+
+    addRing(ring) {
+        this.rings.push(ring);
+        this.totalArea = this.totalArea + ring.openArea;
+        this.totalPinholes = this.totalPinholes + ring.pinholes.length;
+        let sieveEquivalentAperture = Math.sqrt(this.totalArea / Math.PI) * 2;
+        this.fNumber = FD / sieveEquivalentAperture;
     }
 }
 
 class Ring {
-    constructor(zone, centerlineRadius, ringWidth, numOfPinholes, openArea){
+    constructor(zone, centerlineRadius, ringWidth, openArea){
         this.zone = zone
         this.centerlineRadius = centerlineRadius
         this.ringWidth = ringWidth
-        this.numOfPinholes = numOfPinholes
         this.openArea = openArea
+        this.pinholes = []
     } 
+
+    addPinhole(pinhole) {
+        this.pinholes.push(pinhole);
+        this.openArea = this.openArea + pinhole.pinholeArea;
+    }
+
+    // conflict checking function can safely ignore pinholes placed on rings other than current 
+    getConflicts(conflictRadius, conflictAzimuth) {
+        let conflictArray = [];
+        let candidateX = conflictRadius * Math.cos(conflictAzimuth);
+        let candidateY = conflictRadius * Math.sin(conflictAzimuth);
+    
+        // loop through all pinholes on current ring, check if min spacing constraint is violated
+
+        for(let i = 0; i < this.pinholes.length; i ++){
+            let conflictDistanceBetweenCenters = distanceBetween(new Point(candidateX, candidateY), this.pinholes[i].point);
+            let conflictDistanceBetweenPerimeters = conflictDistanceBetweenCenters - this.pinholes[i].radius - conflictRadius;
+            if(conflictDistanceBetweenPerimeters <= SPACE_MIN){
+                conflictArray.push(this.pinholes[i]);
+            }
+        }
+
+        return conflictArray
+    }
 }
 
-/*class Point {
+class Point {
     constructor(x,y) {
         this.x = x
         this.y = y
     }
-}*/
+}
 
 class Pinhole {
     constructor(radius, azimuth, pinholeArea) {
        this.radius = radius
        this.azimuth = azimuth
        this.pinholeArea = pinholeArea
-       this.pointX = radius * Math.cos(azimuth); 
-       this.pointY = radius * Math.sin(azimuth);       
+       this.point = new Point(radius * Math.cos(azimuth), radius * Math.sin(azimuth)); 
+    }
+
+    toString() {
+        return "("+this.point.x+", "+this.point.y+")";
     }
 }
 
-function distanceBetween(x1, y1, x2, y2) {
-    return Math.hypot(x2 - x1, y2 - y1);
-}
-
-// conflict checking function can safely ignore pinholes placed on rings other than current 
-function getConflicts(conflictRadius, conflictAzimuth) {
-    let conflictArray = [];
-    let candidateX = conflictRadius * Math.cos(conflictAzimuth);
-    let candidateY = conflictRadius * Math.sin(conflictAzimuth);
-    
-    // loop through all pinholes on current ring, check if min spacing constraint is violated
-
-    for(i = 0; i < currentPinholeArray.length; i ++){
-        let conflictDistanceBetweenCenters = distanceBetween(candidateX, currentPinholeArray[i][1], candidateY, currentPinholeArray[i][2]);
-        let conflictDistanceBetweenPerimeters = conflictDistanceBetweenCenters - currentPinholeArray[i][0] - conflictRadius;
-        if(conflictDistanceBetweenPerimeters <= SPACE_MIN){
-            conflictArray.push(i);
-        }
-    return conflictArray.length
-    }
+function distanceBetween(a, b) {
+    return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
 function randMinMax(min, max) {
     return Math.random() * ((max - min) + min);
- }
-
-let currentPinholeArray = []; 
+ } 
  
 //create new pinhole sieve object
 const photonSieve = new Sieve(0, 0, 0);
 
 //loop through fresnelZonePlate, add a Ring for each even-numbered zone
-for(i = 1; i < fresnelZonePlate.length; i = i + 2){
-    let zone = i - 1;
+for(let i = 1; i < fresnelZonePlate.length; i = i + 2){
     let zoneWidth = fresnelZonePlate[i] - fresnelZonePlate[i-1];
     let centerlineRadius = fresnelZonePlate[i-1] + zoneWidth / 2;
     let ringArea = (Math.PI * fresnelZonePlate[i] ** 2) - (Math.PI * fresnelZonePlate[i-1] ** 2);
@@ -97,19 +112,13 @@ for(i = 1; i < fresnelZonePlate.length; i = i + 2){
     while(ring.openArea < AREA_PROP * ringArea){
         let minRadius = Math.max(DIA_MIN, zoneWidth * .25);
         let candidateRadius = randMinMax(minRadius, zoneWidth * MAX_FACTOR);
-        let candidateAzimuth = Math.random() * Math.PI * 2;
-        if(getConflicts(candidateAzimuth, candidateRadius) = 0){
-            let pinhole = new Pinhole(candidateRadius, candidateAzimuth, 0);         
-            currentPinholeArray.push([pinhole.radius, pinhole.pointX, pinhole.pointY]);
-            pinhole.pinholeArea = Math.PI * radius ** 2;
-            ring.openArea = ring.openArea + pinhole.pinholeArea;
-            ring.numOfPinholes = ring.numOfPinholes + 1;
-            }
+        let candidateAzimuth = Math.random() * Math.PI * 2;  
+        if(ring.getConflicts(candidateRadius, candidateAzimuth).length == 0){
+            let pinhole = new Pinhole(candidateRadius, candidateAzimuth, Math.PI * candidateRadius ** 2);         
+            ring.addPinhole(pinhole);
         }
-    photonSieve.totalArea = photonSieve.totalArea + ring.openArea;
-    photonSieve.totalPinholes = photonSieve.totalPinholes + ring.numOfPinholes;
-    let sieveEquivalentAperture = Math.sqrt(photonSieve.totalArea / Math.PI) * 2;
-    photonSieve.fNumber = FD / sieveEquivalentAperture;
-    console.lot(photonSieve);
     }
-console.log(photonSieve);
+
+    photonSieve.addRing(ring);
+}
+console.log(JSON.stringify(photonSieve, null, 2));
