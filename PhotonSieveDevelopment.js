@@ -37,11 +37,10 @@ class Sieve {
 }
 
 class Ring {
-    constructor(zone, centerlineRadius, ringWidth, openArea){
+    constructor(zone, centerlineRadius){
         this.zone = zone
         this.centerlineRadius = centerlineRadius
-        this.ringWidth = ringWidth
-        this.openArea = openArea
+        this.openArea = 0
         this.pinholes = []
     } 
 
@@ -78,11 +77,11 @@ class Point {
 }
 
 class Pinhole {
-    constructor(radius, azimuth, pinholeArea) {
+    constructor(radius, azimuth, parentRingRadius) {
        this.radius = radius
        this.azimuth = azimuth
-       this.pinholeArea = pinholeArea
-       this.point = new Point(radius * Math.cos(azimuth), radius * Math.sin(azimuth)); 
+       this.pinholeArea = Math.PI * radius ** 2
+       this.point = new Point(parentRingRadius * Math.cos(azimuth), parentRingRadius * Math.sin(azimuth)); 
     }
 }
 
@@ -102,15 +101,15 @@ for(let i = 1; i < fresnelZonePlate.length; i = i + 2){
     let zoneWidth = fresnelZonePlate[i] - fresnelZonePlate[i-1];
     let centerlineRadius = fresnelZonePlate[i-1] + zoneWidth / 2;
     let ringArea = (Math.PI * fresnelZonePlate[i] ** 2) - (Math.PI * fresnelZonePlate[i-1] ** 2);
-    var ring = new Ring(i-1, centerlineRadius, zoneWidth, 0, 0);
+    var ring = new Ring(i-1, centerlineRadius, zoneWidth);
 
     //add pinholes to ring until total area constraint is fulfilled
     while(ring.openArea < AREA_PROP * ringArea){
         let minRadius = Math.max(DIA_MIN, zoneWidth * .25);
         let candidateRadius = randMinMax(minRadius, zoneWidth * MAX_FACTOR);
-        let candidateAzimuth = Math.random() * Math.PI * 2;  
+        let candidateAzimuth = Math.random() * Math.PI * 2 * ring.centerlineRadius;  
         if(ring.getConflicts(candidateRadius, candidateAzimuth).length == 0){
-            let pinhole = new Pinhole(candidateRadius, candidateAzimuth, Math.PI * candidateRadius ** 2);         
+            let pinhole = new Pinhole(candidateRadius, candidateAzimuth, ring.centerlineRadius);         
             ring.addPinhole(pinhole);
         }
     }
